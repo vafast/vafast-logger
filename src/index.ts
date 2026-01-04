@@ -1,30 +1,34 @@
 /**
- * @vafast/logger - High-performance logging plugin for Vafast
+ * @vafast/logger - 基于 Pino 的高性能日志插件
  * 
- * 零配置使用，通过环境变量配置：
- * - VAFAST_APP_NAME: 应用名称（默认 'app'）
- * - NODE_ENV: 'production' 时使用生产模式
+ * 使用方式（业界标准）：
+ * 
+ * 1. 创建配置文件 src/utils/logger.ts：
+ *    import { createLoggerSet } from '@vafast/logger'
+ *    const loggers = createLoggerSet({ name: 'my-app' })
+ *    export const appLogger = loggers.app
+ *    export const dbLogger = loggers.db
+ * 
+ * 2. 任何地方使用：
+ *    import { appLogger } from '~/utils/logger'
+ *    appLogger.info('hello')
  */
 import pino from 'pino'
 import type { Logger, LoggerOptions } from 'pino'
 
 // ============ Types ============
 
-export interface VafastLoggerConfig {
-  level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
-  production?: boolean
+export interface LoggerConfig {
+  /** 应用名称 */
   name?: string
-  pinoOptions?: LoggerOptions
+  /** 日志级别 @default 'info' */
+  level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
+  /** 是否为生产环境（影响格式化） @default process.env.NODE_ENV === 'production' */
+  production?: boolean
+  /** 是否启用美化输出 @default true */
   pretty?: boolean
-  prettyOptions?: {
-    colorize?: boolean
-    translateTime?: string
-    ignore?: string
-  }
-}
-
-export interface LogContext {
-  [key: string]: unknown
+  /** 自定义 Pino 配置 */
+  pinoOptions?: LoggerOptions
 }
 
 export interface LoggerSet {
@@ -36,16 +40,18 @@ export interface LoggerSet {
   external: Logger
 }
 
-// ============ Logger Factory ============
+// ============ Factory Functions ============
 
-function createLogger(config: VafastLoggerConfig = {}): Logger {
+/**
+ * 创建单个 Logger 实例
+ */
+export function createLogger(config: LoggerConfig = {}): Logger {
   const {
-    level = 'info',
-    production = false,
     name,
-    pinoOptions = {},
+    level = 'info',
+    production = process.env.NODE_ENV === 'production',
     pretty = true,
-    prettyOptions = {}
+    pinoOptions = {},
   } = config
 
   const options: LoggerOptions = {
@@ -54,13 +60,14 @@ function createLogger(config: VafastLoggerConfig = {}): Logger {
     ...pinoOptions,
   }
 
+  // 非生产环境启用美化输出
   if (!production && pretty) {
     options.transport = {
       target: 'pino-pretty',
       options: {
-        colorize: prettyOptions.colorize ?? true,
-        translateTime: prettyOptions.translateTime ?? 'SYS:standard',
-        ignore: prettyOptions.ignore ?? 'pid,hostname',
+        colorize: true,
+        translateTime: 'SYS:standard',
+        ignore: 'pid,hostname',
       }
     }
   }
@@ -68,58 +75,44 @@ function createLogger(config: VafastLoggerConfig = {}): Logger {
   return pino(options)
 }
 
-function createChildLogger(parent: Logger, module: string): Logger {
-  return parent.child({ module })
-}
-
-export function createLoggerSet(config: VafastLoggerConfig = {}): LoggerSet {
+/**
+ * 创建预配置的 Logger 集合（推荐）
+ * 
+ * @example
+ * const loggers = createLoggerSet({ name: 'my-app' })
+ * export const appLogger = loggers.app
+ * export const dbLogger = loggers.db
+ */
+export function createLoggerSet(config: LoggerConfig = {}): LoggerSet {
   const app = createLogger(config)
   return {
     app,
-    route: createChildLogger(app, 'route'),
-    db: createChildLogger(app, 'db'),
-    middleware: createChildLogger(app, 'middleware'),
-    auth: createChildLogger(app, 'auth'),
-    external: createChildLogger(app, 'external'),
+    route: app.child({ module: 'route' }),
+    db: app.child({ module: 'db' }),
+    middleware: app.child({ module: 'middleware' }),
+    auth: app.child({ module: 'auth' }),
+    external: app.child({ module: 'external' }),
   }
 }
 
-// ============ 默认全局 Logger（零配置） ============
+// ============ Utilities ============
 
-// 从环境变量自动配置
-const defaultLoggers = createLoggerSet({
-  name: process.env.VAFAST_APP_NAME || 'app',
-  production: process.env.NODE_ENV === 'production',
-})
-
-// 直接导出，无需初始化
-export const appLogger = defaultLoggers.app
-export const routeLogger = defaultLoggers.route
-export const dbLogger = defaultLoggers.db
-export const middlewareLogger = defaultLoggers.middleware
-export const authLogger = defaultLoggers.auth
-export const externalLogger = defaultLoggers.external
-
-// ============ Utility ============
-
+/**
+ * 记录错误（结构化格式）
+ */
 export function logError(
   logger: Logger,
   error: Error,
   message?: string,
-  context?: LogContext
+  context?: Record<string, unknown>
 ): void {
   logger.error({
-    err: {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    },
+    err: { message: error.message, name: error.name, stack: error.stack },
     ...context,
   }, message ?? error.message)
 }
 
 // ============ Re-exports ============
 
-export { pino, createLogger, createChildLogger }
+export { pino }
 export type { Logger, LoggerOptions } from 'pino'
-export default createLogger
