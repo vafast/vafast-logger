@@ -1,6 +1,6 @@
 {
   "name": "@vafast/logger",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "High-performance logging plugin for Vafast framework based on Pino",
   "type": "module",
   "main": "./dist/index.js",
@@ -27,7 +27,7 @@
     "test": "bun test",
     "test:types": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "release": "npm run build && npm publish --access=public"
+    "release": "npx np --no-tests"
   },
   "license": "MIT",
   "files": [
