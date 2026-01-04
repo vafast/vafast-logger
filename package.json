@@ -1,0 +1,53 @@
+{
+  "name": "@vafast/logger",
+  "version": "0.1.0",
+  "description": "High-performance logging plugin for Vafast framework based on Pino",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "keywords": [
+    "vafast",
+    "logger",
+    "pino",
+    "logging",
+    "typescript"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "tsup",
+    "dev": "bun run --hot example/index.ts",
+    "test": "bun test",
+    "test:types": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "release": "npm run build && npm publish --access=public"
+  },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.4.5",
+    "vafast": "^0.3.9"
+  },
+  "peerDependencies": {
+    "vafast": ">= 0.3.0"
+  }
+}
+
