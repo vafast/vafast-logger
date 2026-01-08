@@ -16,7 +16,7 @@ High-performance logging plugin for Vafast framework based on [Pino](https://git
 ```bash
 npm install @vafast/logger
 # or
-bun add @vafast/logger
+npm install @vafast/logger
 ```
 
 ## Quick Start
