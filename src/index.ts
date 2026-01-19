@@ -1,17 +1,20 @@
 /**
  * @vafast/logger - 基于 Pino 的高性能日志插件
  * 
- * 使用方式（业界标准）：
+ * 推荐使用方式：
  * 
  * 1. 创建配置文件 src/utils/logger.ts：
- *    import { createLoggerSet } from '@vafast/logger'
- *    const loggers = createLoggerSet({ name: 'my-app' })
- *    export const appLogger = loggers.app
- *    export const dbLogger = loggers.db
+ *    import { createLogger } from '@vafast/logger'
+ *    export const logger = createLogger({ name: 'my-app' })
  * 
  * 2. 任何地方使用：
- *    import { appLogger } from '~/utils/logger'
- *    appLogger.info('hello')
+ *    import { logger } from '~/utils/logger'
+ *    logger.info('hello')
+ * 
+ * 高级用法（需要模块化日志时）：
+ *    import { createLoggerSet } from '@vafast/logger'
+ *    export const loggers = createLoggerSet({ name: 'my-app' })
+ *    // 使用 loggers.app, loggers.db 等（自动带 module 字段）
  */
 import pino from 'pino'
 import type { Logger, LoggerOptions } from 'pino'
@@ -43,7 +46,17 @@ export interface LoggerSet {
 // ============ Factory Functions ============
 
 /**
- * 创建单个 Logger 实例
+ * 创建单个 Logger 实例（推荐）
+ * 
+ * 简单直接，适合大多数场景。
+ * 需要模块区分时，可在日志数据中添加 module 字段。
+ * 
+ * @example
+ * ```typescript
+ * const logger = createLogger({ name: 'my-app' })
+ * logger.info('Server started')
+ * logger.error({ err, module: 'db' }, 'Query failed')
+ * ```
  */
 export function createLogger(config: LoggerConfig = {}): Logger {
   const {
@@ -76,12 +89,17 @@ export function createLogger(config: LoggerConfig = {}): Logger {
 }
 
 /**
- * 创建预配置的 Logger 集合（推荐）
+ * 创建预配置的 Logger 集合（高级功能）
+ * 
+ * 为不同模块创建子 logger，每个自动绑定 module 字段。
+ * 适合需要按模块过滤日志的大型应用。
  * 
  * @example
+ * ```typescript
  * const loggers = createLoggerSet({ name: 'my-app' })
- * export const appLogger = loggers.app
- * export const dbLogger = loggers.db
+ * loggers.db.info('Query')  // 自动包含 { module: 'db' }
+ * loggers.auth.info('Login') // 自动包含 { module: 'auth' }
+ * ```
  */
 export function createLoggerSet(config: LoggerConfig = {}): LoggerSet {
   const app = createLogger(config)

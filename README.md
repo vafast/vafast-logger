@@ -19,7 +19,7 @@ npm install @vafast/logger
 npm install @vafast/logger
 ```
 
-## Quick Start
+## Quick Start (Recommended)
 
 ```typescript
 import { createLogger } from '@vafast/logger'
@@ -34,26 +34,33 @@ logger.error({ err }, 'Request failed')
 logger.debug({ userId: 123 }, 'User logged in')
 ```
 
-## Logger Set (Recommended)
+**推荐使用 `createLogger`** - 简单直接，适合大多数场景。
 
-For larger applications, use `createLoggerSet` to get pre-configured child loggers:
+## Logger Set (Advanced)
+
+For applications that need module-based log filtering, use `createLoggerSet` to get pre-configured child loggers with automatic `module` binding:
 
 ```typescript
 import { createLoggerSet } from '@vafast/logger'
 
 const loggers = createLoggerSet({
-  name: 'ones-server',
+  name: 'my-app',
   production: process.env.NODE_ENV === 'production'
 })
 
-// Different loggers for different concerns
-loggers.app.info('Server started')
-loggers.db.debug('Query executed')
-loggers.route.info('GET /api/users 200 15ms')
-loggers.auth.warn('Invalid token')
-loggers.middleware.debug('CORS check passed')
-loggers.external.info('AI API called')
+// Each logger automatically includes module field
+loggers.app.info('Server started')        // { module: undefined, msg: '...' }
+loggers.db.debug('Query executed')        // { module: 'db', msg: '...' }
+loggers.route.info('GET /api/users 200')  // { module: 'route', msg: '...' }
+loggers.auth.warn('Invalid token')        // { module: 'auth', msg: '...' }
+loggers.middleware.debug('CORS passed')    // { module: 'middleware', msg: '...' }
+loggers.external.info('API called')       // { module: 'external', msg: '...' }
 ```
+
+**Use `createLoggerSet` when:**
+- You need to filter logs by module in log aggregation tools
+- You want automatic module tagging for better log organization
+- Your application has clear module boundaries
 
 ## Configuration
 
