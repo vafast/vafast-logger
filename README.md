@@ -1,129 +1,103 @@
 # @vafast/logger
 
-High-performance logging plugin for Vafast framework based on [Pino](https://github.com/pinojs/pino).
+基于 [Pino](https://getpino.io/) 的日志工厂：`createLogger` / `createLoggerSet` / `logError`。
 
-## Features
+> **不是 HTTP 中间件。** 没有 `logger()`、不会自动记访问日志。HTTP 请求日志请用 [`@vafast/request-logger`](https://www.npmjs.com/package/@vafast/request-logger)。
 
-- 🚀 High performance (Pino is the fastest Node.js logger)
-- 📦 Zero configuration for quick start
-- 🎨 Pretty output in development
-- 📊 JSON output in production (ready for log aggregation)
-- 🔧 Child loggers for different modules
-- 📝 TypeScript support
-
-## Installation
+## 安装
 
 ```bash
 npm install @vafast/logger
-# or
-npm install @vafast/logger
 ```
 
-## Quick Start (Recommended)
+开发美化输出使用 `pino-pretty`（本包已依赖；也可在项目中显式安装）：
+
+```bash
+npm install -D pino-pretty
+```
+
+## 快速开始
 
 ```typescript
 import { createLogger } from '@vafast/logger'
 
-const logger = createLogger({
-  name: 'my-app',
-  production: process.env.NODE_ENV === 'production'
-})
+export const logger = createLogger({ name: 'my-app' })
 
 logger.info('Server started')
-logger.error({ err }, 'Request failed')
-logger.debug({ userId: 123 }, 'User logged in')
+logger.error({ err, module: 'db' }, 'Query failed')
 ```
 
-**推荐使用 `createLogger`** - 简单直接，适合大多数场景。
+## 用法
 
-## Logger Set (Advanced)
-
-For applications that need module-based log filtering, use `createLoggerSet` to get pre-configured child loggers with automatic `module` binding:
+### 模块化 Logger
 
 ```typescript
 import { createLoggerSet } from '@vafast/logger'
 
-const loggers = createLoggerSet({
-  name: 'my-app',
-  production: process.env.NODE_ENV === 'production'
-})
+const loggers = createLoggerSet({ name: 'my-app' })
 
-// Each logger automatically includes module field
-loggers.app.info('Server started')        // { module: undefined, msg: '...' }
-loggers.db.debug('Query executed')        // { module: 'db', msg: '...' }
-loggers.route.info('GET /api/users 200')  // { module: 'route', msg: '...' }
-loggers.auth.warn('Invalid token')        // { module: 'auth', msg: '...' }
-loggers.middleware.debug('CORS passed')    // { module: 'middleware', msg: '...' }
-loggers.external.info('API called')       // { module: 'external', msg: '...' }
+loggers.db.info('Query')     // { module: 'db' }
+loggers.auth.info('Login')   // { module: 'auth' }
 ```
 
-**Use `createLoggerSet` when:**
-- You need to filter logs by module in log aggregation tools
-- You want automatic module tagging for better log organization
-- Your application has clear module boundaries
+集合：`app` / `route` / `db` / `middleware` / `auth` / `external`。
 
-## Configuration
+### 结构化错误
 
 ```typescript
-interface VafastLoggerConfig {
-  /** Log level @default 'info' */
-  level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
-  /** Is production environment @default false */
-  production?: boolean
-  /** Application name */
-  name?: string
-  /** Custom pino options */
-  pinoOptions?: LoggerOptions
-  /** Enable pretty output in dev @default true */
-  pretty?: boolean
-  /** Pretty output options */
-  prettyOptions?: {
-    colorize?: boolean
-    translateTime?: string
-    ignore?: string
+import { createLogger, logError } from '@vafast/logger'
+
+const logger = createLogger({ name: 'my-app' })
+
+try {
+  await doWork()
+} catch (error) {
+  if (error instanceof Error) {
+    logError(logger, error, 'doWork failed', { userId: 'u_1' })
   }
 }
 ```
 
-## Output Examples
+## API 完整参数
 
-### Development (Pretty)
+### `createLogger(config?)` / `createLoggerSet(config?)`
 
-```
-[10:30:45] INFO (my-app): Server started
-[10:30:46] DEBUG (my-app/db): Query executed
-    query: "SELECT * FROM users"
-[10:30:47] ERROR (my-app): Request failed
-    err: {
-      message: "Connection refused"
-      stack: "..."
-    }
-```
+| 参数 | 类型 | 默认 | 说明 |
+|------|------|------|------|
+| `name` | `string` | — | 应用名 |
+| `level` | Pino level | `'info'` | 非生产级别 |
+| `production` | `boolean` | `NODE_ENV === 'production'` | 生产固定 `info` 且关闭 pretty |
+| `pretty` | `boolean` | `true` | 非生产启用 `pino-pretty` |
+| `pinoOptions` | `LoggerOptions` | `{}` | 透传 Pino |
 
-### Production (JSON)
+### `logError(logger, error, message?, context?)`
 
-```json
-{"level":30,"time":1704355845000,"name":"my-app","msg":"Server started"}
-{"level":20,"time":1704355846000,"name":"my-app","module":"db","query":"SELECT * FROM users","msg":"Query executed"}
-```
+将 `error.message` / `name` / `stack` 写入 `err` 字段后调用 `logger.error`。
 
-## Utility Functions
+### 再导出
 
-```typescript
-import { logError, logRequest } from '@vafast/logger'
+`pino`、`Logger`、`LoggerOptions`。
 
-// Log errors with stack trace
-try {
-  // ...
-} catch (err) {
-  logError(logger, err, 'Operation failed', { userId: 123 })
-}
+## 最佳实践
 
-// Log HTTP requests
-logRequest(logger, 'GET', '/api/users', 200, 15, { userId: 123 })
-```
+- 应用内单例 `createLogger`，按路径复用
+- HTTP 访问日志交给 `@vafast/request-logger`
+- 需要按模块过滤时用 `createLoggerSet` 或手动 `{ module }`
+- 生产使用 JSON 行日志（关闭 pretty）
+
+## 注意事项
+
+- **仅**工厂函数，不是 `app.use` 中间件
+- 不存在 `logRequest` API
+- `production: true` 会忽略自定义 `level`（固定 `info`）
+- 不感知 `requestId`；需自行写入日志字段
+
+## 相关链接
+
+- 文档：[`docs/middleware/logger.md`](../vafast-doc/docs/middleware/logger.md)
+- [@vafast/request-logger](https://www.npmjs.com/package/@vafast/request-logger)
+- [@vafast/request-id](https://www.npmjs.com/package/@vafast/request-id)
 
 ## License
 
 MIT
-
